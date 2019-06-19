@@ -24,13 +24,24 @@ class RaftServiceImpl(val state: RaftState) extends RaftServiceGrpc.RaftService
       electionTimer.reset()
     }
 
-    info(s"Node ${state.me} received AppendEntries from ${request.serverId}")
+    info(s"Node ${state.me} (term=${state.currentTerm}) received AppendEntries from ${request.serverId}")
 
-    if (request.term > state.currentTerm) {
+    if (request.term >= state.currentTerm) {
       becomeFollower(Some(request.term))
     }
 
-    Future.successful(AppendEntries.Response(term = state.currentTerm, success = true))
+    val prevLog = state.log.find(e => e.term == request.prevLogTerm && e.index == request.prevLogIndex)
+
+    if (request.prevLogIndex > 0 && prevLog.isEmpty) {
+      Future.successful(AppendEntries.Response(term = state.currentTerm, success = false))
+    }else{
+      val keep = state.log.takeWhile(e => e.term <= request.prevLogTerm && e.index <= request.prevLogIndex)
+      state.log = keep ++ request.entries
+
+      Future.successful(AppendEntries.Response(term = state.currentTerm, success = true))
+    }
+
+
   }
 
   override def requestVote(request: RequestVote.Request): Future[RequestVote.Response] = {
@@ -53,8 +64,8 @@ class RaftServiceImpl(val state: RaftState) extends RaftServiceGrpc.RaftService
 
 
   def stopTimers(): Unit = {
-    electionTimer.cancel()
-    leaderTimer.cancel()
+    electionTimer.cancel(kill=true)
+    leaderTimer.cancel(kill=true)
   }
 
 }

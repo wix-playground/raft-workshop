@@ -15,19 +15,18 @@ case class RaftState(
                     // persistent
                     @volatile var currentTerm: TermIndex = 0,
                     @volatile var votedFor: Option[ServerId] = None,
-                    log: Array[Entry] = Array.empty,
+                    var log: Array[Entry] = Array.empty,
 
                     // volatile
                     var commitIndex: EntryIndex = 0,
                     var lastApplied: EntryIndex = 0,
 
-
                     // leader state
                     var nextIndex: Map[ServerId, EntryIndex] = Map.empty,
                     var matchIndex: Map[ServerId, EntryIndex] = Map.empty
                     ) {
-  def lastLogIndex: Long = if (log.length > 0) log.last.index else 0L
-  def lastLogTerm: TermIndex = if (log.length > 0) log.last.term else 0L
+  def lastLogIndex: Long = if (log.nonEmpty) log.last.index else 0L
+  def lastLogTerm: TermIndex = if (log.nonEmpty) log.last.term else 0L
 
   def updateTerm(newTerm: TermIndex): Unit = {
     currentTerm = newTerm

@@ -28,7 +28,9 @@ trait FollowerFlow {
           resp =>
             if (resp.term > state.currentTerm) Left(resp.term) else Right(resp.granted)
         }.recover {
-          case _ => Right(false)
+          case err =>
+            info(s"Error occurred while sending RequestVote $err")
+            Right(false)
         }
 
     }.toList
