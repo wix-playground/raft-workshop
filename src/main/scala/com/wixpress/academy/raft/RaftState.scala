@@ -10,19 +10,29 @@ object ServerMode extends Enumeration {
 case class RaftState(
                     me: ServerId,
                     peers: Array[RaftServiceGrpc.RaftServiceStub],
-                    mode: ServerMode = ServerMode.Follower,
+                    @volatile var mode: ServerMode = ServerMode.Follower,
 
                     // persistent
-                    currentTerm: Int = 0,
-                    votedFor: Option[ServerId] = None,
+                    @volatile var currentTerm: TermIndex = 0,
+                    @volatile var votedFor: Option[ServerId] = None,
                     log: Array[Entry] = Array.empty,
 
                     // volatile
-                    commitIndex: EntryIndex = 0,
-                    lastApplied: EntryIndex = 0,
+                    var commitIndex: EntryIndex = 0,
+                    var lastApplied: EntryIndex = 0,
 
 
                     // leader state
-                    nextIndex: Map[ServerId, EntryIndex] = Map.empty,
-                    matchIndex: Map[ServerId, EntryIndex] = Map.empty
-                    )
+                    var nextIndex: Map[ServerId, EntryIndex] = Map.empty,
+                    var matchIndex: Map[ServerId, EntryIndex] = Map.empty
+                    ) {
+  def lastLogIndex: Long = if (log.length > 0) log.last.index else 0L
+  def lastLogTerm: TermIndex = if (log.length > 0) log.last.term else 0L
+
+  def updateTerm(newTerm: TermIndex): Unit = {
+    currentTerm = newTerm
+    mode = ServerMode.Follower
+    votedFor = None
+  }
+
+}
