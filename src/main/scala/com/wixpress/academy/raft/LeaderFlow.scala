@@ -2,17 +2,19 @@ package com.wixpress.academy.raft
 
 import java.util.concurrent.TimeUnit
 
+import com.wixpress.academy.raft.RaftActor.{HeartbeatCompleteMsg, HeartbeatMsg}
+
 import scala.concurrent.Future
-import scala.util.{Failure, Success}
+import scala.util.{Failure, Success, Try}
 
 
 trait LeaderFlow {
-  this: RaftServiceImpl =>
+  this: RaftActor =>
+
+  type HeartbeatResult = Either[TermIndex, List[(ServerId, EntryIndex)]]
 
   def heartbeat(): Unit = if (state.mode == ServerMode.Leader) {
     info(s"Node ${state.me} is about to sent hearbeats ${state.mode} - ${state.currentTerm}")
-
-    leaderTimer.reset()
 
     val calls = state.peers.zipWithIndex.map {
       case (conn, serverId: Int) =>
@@ -43,31 +45,35 @@ trait LeaderFlow {
         }
     }
 
-    val zero: Either[TermIndex, List[(ServerId, EntryIndex)]] = Right(List.empty)
-    val successF: Future[Either[TermIndex, List[(ServerId, EntryIndex)]]] = Future.foldLeft(calls.toList)(zero) {
+    val zero: HeartbeatResult = Right(List.empty)
+    val successF: Future[HeartbeatResult] = Future.foldLeft(calls.toList)(zero) {
       (acc, resp) =>
         resp.flatMap(value => acc.map(_ :+ value))
     }
 
     successF onComplete {
-      case Success(value) => value match {
-        case Left(newTerm) => becomeFollower(Some(newTerm))
-        case Right(nextIndexes) =>
-          info(s"Node ${state.me} successfully sent heartbeats (term=${state.currentTerm})")
-          state.nextIndex = state.nextIndex ++ nextIndexes
-      }
+      case Success(value) => self ! RaftActor.HeartbeatCompleteMsg(value)
       case Failure(exception) => error(exception)
     }
   }
 
+  def onHertbeatComplete(result: HeartbeatResult): Unit = result match {
+    case Left(newTerm) => becomeFollower(Some(newTerm))
+    case Right(nextIndexes) =>
+      info(s"Node ${state.me} successfully sent heartbeats (term=${state.currentTerm})")
+      state.nextIndex = state.nextIndex ++ nextIndexes
+  }
 
   def becomeLeader(): Unit = {
     info(s"Node ${state.me} became Leader")
-
     state.mode = ServerMode.Leader
-    electionTimer.cancel()
-    leaderTimer.start()
 
     heartbeat()
+    context.become(receiveLeader)
+  }
+
+  def receiveLeader: Receive = {
+    case HeartbeatMsg => heartbeat()
+    case HeartbeatCompleteMsg(result) => onHertbeatComplete(result)
   }
 }

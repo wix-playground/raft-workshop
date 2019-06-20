@@ -6,7 +6,9 @@ import scala.concurrent.Future
 import scala.util.{Failure, Success}
 
 trait FollowerFlow {
-  this: RaftServiceImpl =>
+  this: RaftActor =>
+
+  type ElectionResult = Either[TermIndex, Integer]
 
   def startElection(): Unit = {
     state.currentTerm += 1
@@ -14,8 +16,6 @@ trait FollowerFlow {
     state.votedFor = Some(state.me)
 
     info(s"Node ${state.me} initialized election with term ${state.currentTerm}")
-
-    electionTimer.reset()
 
     val calls = state.peers.map {
       conn =>
@@ -37,8 +37,8 @@ trait FollowerFlow {
 
     info(s"Node ${state.me} waiting responses ${calls.length}")
 
-    val zero: Either[TermIndex, Integer] = Right(0)
-    val resultF: Future[Either[TermIndex, Integer]] = Future.foldLeft(calls)(zero) {
+    val zero: ElectionResult = Right(0)
+    val resultF: Future[ElectionResult] = Future.foldLeft(calls)(zero) {
       (votes, resp) =>
         resp match {
           case Left(term) => Left(term)
@@ -47,17 +47,20 @@ trait FollowerFlow {
     }
 
     resultF onComplete {
-      case Success(result) =>
-        info(s"Node's ${state.me} election result is: ${result}")
-
-        result match {
-          case Left(term) => becomeFollower(Some(term))
-          case Right(votes) if (state.peers.length / 2 < votes && state.mode == ServerMode.Candidate) => becomeLeader()
-          case _ => None
-        }
+      case Success(result) => self ! RaftActor.ElectionCompleteMsg(result)
       case Failure(exception) => error(exception)
     }
 
+  }
+
+  def onElectionComplete(result: ElectionResult): Unit = {
+    info(s"Node's ${state.me} election result is: $result")
+
+    result match {
+      case Left(term) => becomeFollower(Some(term))
+      case Right(votes) if (state.peers.length / 2 < votes && state.mode == ServerMode.Candidate) => becomeLeader()
+      case _ => None
+    }
   }
 
   def becomeFollower(newTerm: Option[TermIndex]): Unit = {
@@ -66,12 +69,11 @@ trait FollowerFlow {
     state.mode = ServerMode.Follower
     state.votedFor = None
 
-    leaderTimer.cancel()
-    electionTimer.start()
-
     newTerm match {
       case Some(term) => state.currentTerm = term
       case _ => None
     }
+
+    context.unbecome()
   }
 }

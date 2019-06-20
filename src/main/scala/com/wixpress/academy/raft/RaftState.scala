@@ -10,11 +10,11 @@ object ServerMode extends Enumeration {
 case class RaftState(
                     me: ServerId,
                     peers: Array[RaftServiceGrpc.RaftServiceStub],
-                    @volatile var mode: ServerMode = ServerMode.Follower,
+                    var mode: ServerMode = ServerMode.Follower,
 
                     // persistent
-                    @volatile var currentTerm: TermIndex = 0,
-                    @volatile var votedFor: Option[ServerId] = None,
+                    var currentTerm: TermIndex = 0,
+                    var votedFor: Option[ServerId] = None,
                     var log: Array[Entry] = Array.empty,
 
                     // volatile
@@ -27,11 +27,5 @@ case class RaftState(
                     ) {
   def lastLogIndex: Long = if (log.nonEmpty) log.last.index else 0L
   def lastLogTerm: TermIndex = if (log.nonEmpty) log.last.term else 0L
-
-  def updateTerm(newTerm: TermIndex): Unit = {
-    currentTerm = newTerm
-    mode = ServerMode.Follower
-    votedFor = None
-  }
 
 }
