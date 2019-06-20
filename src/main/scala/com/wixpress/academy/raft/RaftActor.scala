@@ -31,7 +31,7 @@ object RaftActor {
 class RaftActor(val state: RaftState) extends Actor with Timers with LogSupport with FollowerFlow with LeaderFlow {
   import RaftActor._
 
-  override lazy val logger = Logger(s"RaftService-${state.me}")
+  override lazy val logger = Logger(s"RaftActor-${state.me}")
   logger.setFormatter(new LogFormatterWithNodeColor(state.me))
 
   implicit val ec: ExecutionContext = ExecutionContext.global
@@ -53,11 +53,16 @@ class RaftActor(val state: RaftState) extends Actor with Timers with LogSupport 
 
     val prevLog = state.log.find(e => e.term == request.prevLogTerm && e.index == request.prevLogIndex)
 
-    if (request.prevLogIndex > 0 && prevLog.isEmpty) {
+    if ((request.prevLogIndex > 0 && prevLog.isEmpty) || request.term < state.currentTerm) {
       AppendEntries.Response(term = state.currentTerm, success = false)
     } else {
       val keep = state.log.takeWhile(e => e.term <= request.prevLogTerm && e.index <= request.prevLogIndex)
       state.log = keep ++ request.entries
+
+      if (request.commitIndex > state.commitIndex) {
+        state.commitIndex = Array(request.commitIndex, state.lastLogIndex).min
+        info(s"Node ${state.me} updated commit index to ${state.commitIndex}")
+      }
 
       AppendEntries.Response(term = state.currentTerm, success = true)
     }

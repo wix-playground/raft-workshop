@@ -17,7 +17,7 @@ class EnvTest extends FlatSpec{
   }
 
   "After partitioning some nodes" should "be unavailable to each other" in {
-    network.partition(1, 2)
+    network.partitionOne(1, 2)
 
     assert(!network.isConnected(1, 2))
     assert(!network.isConnected(2, 1))

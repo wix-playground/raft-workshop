@@ -55,7 +55,7 @@ class ElectionTest extends FeatureSpec with ClusterFixtures with GivenWhenThen w
           Given("Leader is fall out of cluster")
 
           val newNetwork = network.nodes.filter(_ != oldLeader.state.me)
-          newNetwork.foreach(network.partition(_, oldLeader.state.me))
+          newNetwork.foreach(network.partitionOne(_, oldLeader.state.me))
 
           When("Cluster elected new Leader")
 
@@ -66,10 +66,26 @@ class ElectionTest extends FeatureSpec with ClusterFixtures with GivenWhenThen w
 
           Then("After reconnection old leader should become follower")
 
-          network.reconnect(oldLeader.state.me, newNetwork.toList.head)
+          network.reconnectOne(oldLeader.state.me, newNetwork.toList.head)
 
-          eventually(timeout(Span(1, Seconds))) {
+          eventually(timeout(Span(2, Seconds))) {
             assert(oldLeader.state.mode == ServerMode.Follower)
+          }
+      }
+    }
+
+    scenario("Only node with majority of entries can be elected as Leader") {
+      withCluster(5) {
+        (servers, _) =>
+          servers(0).state.log = Array(Entry(term=1, index=1), Entry(term=3, index=3))
+          servers(1).state.log = Array(Entry(term=1, index=1))
+          servers(2).state.log = Array(Entry(term=1, index=1), Entry(term=3, index=3), Entry(term=5, index=5))
+          servers(3).state.log = Array(Entry(term=1, index=1), Entry(term=2, index=2))
+          servers(4).state.log = Array(Entry(term=1, index=1), Entry(term=4, index=4))
+
+          eventually(timeout(Span(5, Seconds))) {
+            val leader = servers.find(_.state.mode == ServerMode.Leader)
+            leader.map(_.state.me) should contain oneOf (servers(2).state.me, servers(4).state.me)
           }
       }
     }

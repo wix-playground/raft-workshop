@@ -12,16 +12,17 @@ class RaftServer(current: ServerId,
                  peers: Array[RaftServiceGrpc.RaftServiceStub],
                  port: Int) extends LogSupport{
 
-
   private[this] var server: Server = null
   private[this] var actor: ActorRef = null
 
-  override lazy val logger = Logger(s"RaftActor-$current")
+  override lazy val logger = Logger(s"RaftServer-$current")
   logger.setFormatter(new LogFormatterWithNodeColor(current))
 
   var state = RaftState(
     me = current,
-    peers = peers
+    peers = peers,
+    nextIndex = (1 to peers.length).map(_ -> 0L).toMap,
+    matchIndex = (1 to peers.length).map(_ -> 0L).toMap
   )
 
   def start(): Unit = {

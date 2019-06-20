@@ -10,7 +10,7 @@ import scala.concurrent.duration._
 
 
 class RaftServiceImpl(actor: ActorRef) extends RaftServiceGrpc.RaftService {
-  implicit val timeout = Timeout(5 seconds)
+  implicit val timeout = Timeout(1 seconds)
 
   override def appendEntries(request: AppendEntries.Request): Future[AppendEntries.Response] = {
     val f = actor ? RaftActor.AppendEntriesMsg(request)

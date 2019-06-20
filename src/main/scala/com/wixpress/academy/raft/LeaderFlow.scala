@@ -2,10 +2,10 @@ package com.wixpress.academy.raft
 
 import java.util.concurrent.TimeUnit
 
-import com.wixpress.academy.raft.RaftActor.{HeartbeatCompleteMsg, HeartbeatMsg}
+import com.wixpress.academy.raft.RaftActor.{AppendEntriesMsg, HeartbeatCompleteMsg, HeartbeatMsg}
 
 import scala.concurrent.Future
-import scala.util.{Failure, Success, Try}
+import scala.util.{Failure, Success}
 
 
 trait LeaderFlow {
@@ -14,7 +14,7 @@ trait LeaderFlow {
   type HeartbeatResult = Either[TermIndex, List[(ServerId, EntryIndex)]]
 
   def heartbeat(): Unit = if (state.mode == ServerMode.Leader) {
-    info(s"Node ${state.me} is about to sent hearbeats ${state.mode} - ${state.currentTerm}")
+    // info(s"Node ${state.me} is about to sent hearbeats ${state.mode} - ${state.currentTerm}")
 
     val calls = state.peers.zipWithIndex.map {
       case (conn, serverId: Int) =>
@@ -29,7 +29,8 @@ trait LeaderFlow {
           term = state.currentTerm,
           entries = entries,
           prevLogIndex = prevLogIndex,
-          prevLogTerm = prevLogTerm
+          prevLogTerm = prevLogTerm,
+          commitIndex = state.commitIndex
         )).map {
           resp => {
             val nextIndexUpdate = if (entries.nonEmpty) {
@@ -62,6 +63,20 @@ trait LeaderFlow {
     case Right(nextIndexes) =>
       info(s"Node ${state.me} successfully sent heartbeats (term=${state.currentTerm})")
       state.nextIndex = state.nextIndex ++ nextIndexes
+      state.matchIndex = state.matchIndex ++ nextIndexes.filter {
+        case (serverId: ServerId, index: TermIndex) => index > state.matchIndex.getOrElse(serverId, 0L) // increase only
+      }
+
+      val majorityIndex = majorityMin(state.matchIndex.values.toArray)
+      val candidateTerm = state.log.find(_.index == majorityIndex).map(_.term)
+      if (candidateTerm.contains(state.currentTerm) && majorityIndex > state.commitIndex) {
+        info(s"Majority agreed - new commit $majorityIndex")
+        state.commitIndex = majorityIndex
+      }
+  }
+
+  def majorityMin(a: Array[Long]): Long = {
+    a.sorted.drop(a.length / 2).head
   }
 
   def becomeLeader(): Unit = {
@@ -75,5 +90,7 @@ trait LeaderFlow {
   def receiveLeader: Receive = {
     case HeartbeatMsg => heartbeat()
     case HeartbeatCompleteMsg(result) => onHertbeatComplete(result)
+
+    case AppendEntriesMsg(request) => sender() ! appendEntries(request)
   }
 }
