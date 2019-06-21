@@ -1,6 +1,7 @@
 package com.wixpress.academy.raft
 
 import com.google.protobuf.ByteString
+import com.wixpress.academy.raft.env.ClusterFixtures
 import org.scalatest.concurrent.Eventually
 import org.scalatest.time.{Seconds, Span}
 import org.scalatest.{FeatureSpec, GivenWhenThen, Matchers}
@@ -122,6 +123,8 @@ class AgreementTest extends FeatureSpec with ClusterFixtures with GivenWhenThen 
             servers.count(_.state.mode == ServerMode.Leader) should be(1)
           }
 
+          Given("Working cluster & some committed messages")
+
           val leader = servers.find(_.state.mode == ServerMode.Leader).get
           val followers: Array[RaftServer] = servers.filter(_.state.mode == ServerMode.Follower).take(3)
 
@@ -132,8 +135,12 @@ class AgreementTest extends FeatureSpec with ClusterFixtures with GivenWhenThen 
             servers.count(_.state.commitIndex == 2) should be(5)
           }
 
+          When("Majority is lost")
+
           followers.foreach(_.stop())
           Thread.sleep(1000)
+
+          And("New messages cannot be committed")
 
           push(leader, message = "3")
           push(leader, message = "4")
@@ -142,8 +149,18 @@ class AgreementTest extends FeatureSpec with ClusterFixtures with GivenWhenThen 
 
           followers.foreach(_.start())
 
+          Thread.sleep(1000)
+
+          Then("After reconnecting and (possible) Leader re-election new agreement must be obtained")
+
           eventually(timeout(Span(3, Seconds))) {
-            servers.count(_.state.commitIndex == 4) should be(5)
+            servers.count(_.state.mode == ServerMode.Leader) should be(1)
+          }
+          val leader2 = servers.find(_.state.mode == ServerMode.Leader).get
+          push(leader2, message = "5")
+
+          eventually(timeout(Span(3, Seconds))) {
+            servers.count(_.state.commitIndex == 5) should be(5)
           }
       }
     }

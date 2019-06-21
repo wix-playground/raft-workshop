@@ -1,5 +1,6 @@
-package com.wixpress.academy.raft
+package com.wixpress.academy.raft.unit
 
+import com.wixpress.academy.raft.ServerId
 import com.wixpress.academy.raft.env.VirtualNetwork
 import org.scalatest.FlatSpec
 

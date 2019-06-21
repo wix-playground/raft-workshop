@@ -1,5 +1,6 @@
 package com.wixpress.academy.raft
 
+import com.wixpress.academy.raft.env.ClusterFixtures
 import org.scalatest.concurrent.Eventually
 import org.scalatest.{FeatureSpec, GivenWhenThen, Matchers}
 import org.scalatest.time._
@@ -75,13 +76,15 @@ class ElectionTest extends FeatureSpec with ClusterFixtures with GivenWhenThen w
     }
 
     scenario("Only node with majority of entries can be elected as Leader") {
-      withCluster(5) {
+      withCluster(5, autoStart = false) {
         (servers, _) =>
           servers(0).state.log = Array(Entry(term=1, index=1), Entry(term=3, index=3))
           servers(1).state.log = Array(Entry(term=1, index=1))
           servers(2).state.log = Array(Entry(term=1, index=1), Entry(term=3, index=3), Entry(term=5, index=5))
           servers(3).state.log = Array(Entry(term=1, index=1), Entry(term=2, index=2))
           servers(4).state.log = Array(Entry(term=1, index=1), Entry(term=4, index=4))
+
+          servers.foreach(_.start())
 
           eventually(timeout(Span(5, Seconds))) {
             val leader = servers.find(_.state.mode == ServerMode.Leader)

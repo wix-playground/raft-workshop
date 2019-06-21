@@ -41,7 +41,6 @@ class RaftActor(val state: RaftState) extends Actor with Timers with LogSupport 
 
   def appendEntries(request: AppendEntries.Request): AppendEntries.Response = {
     if (request.term >= state.currentTerm) {
-      timers.cancel(ElectionTickKey)
       timers.startPeriodicTimer(ElectionTickKey, ElectionMsg, (scala.util.Random.nextInt(500) + 500) millis)
     }
 
@@ -74,7 +73,8 @@ class RaftActor(val state: RaftState) extends Actor with Timers with LogSupport 
     }
 
     if (request.term < state.currentTerm || state.votedFor.exists(_ != request.serverId) ||
-      request.lastLogIndex < state.lastLogIndex || request.lastLogTerm < state.lastLogTerm) {
+      request.lastLogTerm < state.lastLogTerm ||
+      (request.lastLogTerm == state.lastLogTerm && request.lastLogIndex < state.lastLogIndex)) {
 
       RequestVote.Response(term = state.currentTerm, granted = false)
     } else {
