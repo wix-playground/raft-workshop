@@ -55,8 +55,7 @@ class RaftActor(val state: RaftState) extends Actor with Timers with LogSupport 
     if ((request.prevLogIndex > 0 && prevLog.isEmpty) || request.term < state.currentTerm) {
       AppendEntries.Response(term = state.currentTerm, success = false)
     } else {
-      val keep = state.log.takeWhile(e => e.term <= request.prevLogTerm && e.index <= request.prevLogIndex)
-      state.log = keep ++ request.entries
+      state.log = mergeEntries(request.prevLogTerm, request.prevLogIndex, request.entries)
 
       if (request.commitIndex > state.commitIndex) {
         state.commitIndex = Array(request.commitIndex, state.lastLogIndex).min
@@ -65,6 +64,18 @@ class RaftActor(val state: RaftState) extends Actor with Timers with LogSupport 
 
       AppendEntries.Response(term = state.currentTerm, success = true)
     }
+  }
+
+  private def mergeEntries(prevLogTerm: TermIndex, prevLogIndex: TermIndex, entries: Seq[Entry]): Array[Entry] = {
+    val (prevLog, postLog) = state.log.span(e => e.term <= prevLogTerm && e.index <= prevLogIndex)
+    val keep = postLog.zipAll(entries, null, null).takeWhile {
+      case (_, null) => true
+      case (null, _) => false
+      case (existing, update) => existing.term == update.term && existing.index == update.index
+    }.map {
+      case (existing, _) => existing
+    }
+    prevLog ++ keep ++ entries.drop(keep.length)
   }
 
   def requestVote(request: RequestVote.Request): RequestVote.Response = {

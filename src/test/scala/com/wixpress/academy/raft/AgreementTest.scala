@@ -58,16 +58,14 @@ class AgreementTest extends FeatureSpec with ClusterFixtures with GivenWhenThen 
           network.partitionAll(follower.state.me)
 
           push(leader, "3")
+          push(leader, "4")
 
-          push(follower, "lost-1")
-          push(follower, "lost-2")
-
-          follower.state.log.map(_.data.toStringUtf8) should be(Array("1", "2", "lost-1", "lost-2"))
+          follower.state.log.map(_.data.toStringUtf8) should be(Array("1", "2"))
 
           network.reconnectAll(follower.state.me)
 
           eventually(timeout(Span(2, Seconds))) {
-            follower.state.log.map(_.data.toStringUtf8) should be(Array("1", "2", "3"))
+            follower.state.log.map(_.data.toStringUtf8) should be(Array("1", "2", "3", "4"))
           }
       }
     }
