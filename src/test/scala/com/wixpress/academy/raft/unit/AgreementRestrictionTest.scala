@@ -43,7 +43,7 @@ class AgreementRestrictionTest extends FlatSpec with Matchers with BeforeAndAfte
       AppendEntries.Request(term = term, prevLogTerm = 2, prevLogIndex = 2)) should have ('success (true))
   }
 
-  ignore should "New entries be successfully appended (with possible overwrite)" in {
+  ignore should "New entries be successfully appended" in {
     val term = raft.state.currentTerm
 
     client.appendEntries(AppendEntries.Request(
@@ -59,5 +59,21 @@ class AgreementRestrictionTest extends FlatSpec with Matchers with BeforeAndAfte
 
     raft.state.log should equal(Array(Entry(term=2, index=2), Entry(term=3, index=4), Entry(term=3, index=5)))
     raft.state.commitIndex should be(5)
+  }
+
+  "Existing entries" should "be overwritten only if there's a conflict" in {
+    val term = raft.state.currentTerm
+
+    client.appendEntries(AppendEntries.Request(
+      term = term,
+      entries = Seq(Entry(term=2, index=2), Entry(term=2, index=3), Entry(term=2, index=4)))) should have ('success (true))
+
+
+    client.appendEntries(AppendEntries.Request(
+      term = term,
+      prevLogTerm=2, prevLogIndex=2,
+      entries = Seq(Entry(term=2, index=3)))) should have ('success (true))
+
+    raft.state.log should equal(Array(Entry(term=2, index=2), Entry(term=2, index=3), Entry(term=2, index=4)))
   }
 }
