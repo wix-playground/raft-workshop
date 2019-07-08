@@ -20,7 +20,7 @@ class AgreementTest extends FeatureSpec with ClusterFixtures with GivenWhenThen 
   }
 
   feature("Entries broadcasting & committing") {
-    scenario("When entry's added to Leader it's being propagated to Followers") {
+    ignore("When entry's added to Leader it's being propagated to Followers") {
       withCluster(5) {
         (servers, _) =>
 
@@ -37,7 +37,7 @@ class AgreementTest extends FeatureSpec with ClusterFixtures with GivenWhenThen 
       }
     }
 
-    scenario("When node is partitioned & unsync with Leader it's being recovered after reconnect") {
+    ignore("When node is partitioned & unsync with Leader it's being recovered after reconnect") {
       withCluster(5) {
         (servers, network) =>
           eventually(timeout(Span(3, Seconds))) {
@@ -72,7 +72,7 @@ class AgreementTest extends FeatureSpec with ClusterFixtures with GivenWhenThen 
       }
     }
 
-    scenario("When majority agrees on entries - they're being committed") {
+    ignore("When majority agrees on entries - they're being committed") {
       withCluster(5) {
         (servers, network) =>
           eventually(timeout(Span(3, Seconds))) {
@@ -94,7 +94,7 @@ class AgreementTest extends FeatureSpec with ClusterFixtures with GivenWhenThen 
       }
     }
 
-    scenario("No agreement without majority") {
+    ignore("No agreement without majority") {
       withCluster(5) {
         (servers, network) =>
           eventually(timeout(Span(3, Seconds))) {
@@ -116,7 +116,7 @@ class AgreementTest extends FeatureSpec with ClusterFixtures with GivenWhenThen 
       }
     }
 
-    scenario("After cluster healed - agreement recovered") {
+    ignore("After cluster healed - agreement recovered") {
       withCluster(5) {
         (servers, network) =>
           eventually(timeout(Span(3, Seconds))) {

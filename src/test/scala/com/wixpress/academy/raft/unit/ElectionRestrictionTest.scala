@@ -23,14 +23,14 @@ class ElectionRestrictionTest extends FlatSpec with Matchers with BeforeAndAfter
     ManagedChannelBuilder.forAddress("localhost", port).usePlaintext.build
   )
 
-  "Only RequestVote with not less term" can "be accepted" in {
+  ignore can "Only RequestVote with not less term be accepted" in {
     raft.state.currentTerm = 10
     client.requestVote(RequestVote.Request(term = 5)) should have ('granted (false))
 
     client.requestVote(RequestVote.Request(term = raft.state.currentTerm)) should have ('granted (true))
   }
 
-  "Only RequestVote with up-to-date log" can "be accepted" in {
+  ignore can "Only RequestVote with up-to-date log be accepted" in {
     raft.state.log = Array(Entry(index = 5, term = 3))
 
     val term = raft.state.currentTerm
@@ -44,7 +44,7 @@ class ElectionRestrictionTest extends FlatSpec with Matchers with BeforeAndAfter
       RequestVote.Request(term = term, lastLogTerm = 3, lastLogIndex=5)) should have ('granted (true))
   }
 
-  "Only node that haven't voted yet in this term" can "vote" in {
+  ignore can "Only node that haven't voted yet in this term vote" in {
     raft.state.votedFor = Some(3)
 
     val term = raft.state.currentTerm

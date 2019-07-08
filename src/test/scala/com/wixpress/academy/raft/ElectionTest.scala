@@ -8,7 +8,7 @@ import org.scalatest.time._
 class ElectionTest extends FeatureSpec with ClusterFixtures with GivenWhenThen with Eventually with Matchers {
 
   feature("Leader Election ") {
-    scenario("After start at least one node become candidate") {
+    ignore("After start at least one node become candidate") {
       withCluster(2) {
         (servers, _) =>
           eventually(timeout(Span(1, Seconds))) {
@@ -18,7 +18,7 @@ class ElectionTest extends FeatureSpec with ClusterFixtures with GivenWhenThen w
     }
 
 
-    scenario("Exact One Leader get majority") {
+    ignore("Exact One Leader get majority") {
       withCluster(5) {
         (servers, _) =>
           eventually(timeout(Span(5, Seconds))) {
@@ -27,7 +27,7 @@ class ElectionTest extends FeatureSpec with ClusterFixtures with GivenWhenThen w
       }
     }
 
-    scenario("After successful election leader is not changing") {
+    ignore("After successful election leader is not changing") {
       withCluster(5) {
         (servers, _) =>
           eventually(timeout(Span(3, Seconds))) {
@@ -42,7 +42,7 @@ class ElectionTest extends FeatureSpec with ClusterFixtures with GivenWhenThen w
       }
     }
 
-    scenario("Leader was partitioned from cluster - new Leader elected") {
+    ignore("Leader was partitioned from cluster - new Leader elected") {
       withCluster(5) {
         (servers, network) =>
           eventually(timeout(Span(3, Seconds))) {
@@ -75,7 +75,7 @@ class ElectionTest extends FeatureSpec with ClusterFixtures with GivenWhenThen w
       }
     }
 
-    scenario("Only node with majority of entries can be elected as Leader") {
+    ignore("Only node with majority of entries can be elected as Leader") {
       withCluster(5, autoStart = false) {
         (servers, _) =>
           servers(0).state.log = Array(Entry(term=1, index=1), Entry(term=3, index=3))
