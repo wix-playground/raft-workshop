@@ -1,5 +1,6 @@
 package com.wixpress.academy.raft
 
+import akka.actor.{ActorRef, ActorSystem, Props}
 import com.wixpress.academy.raft.utils.LogFormatterWithNodeColor
 import io.grpc.{Server, ServerBuilder}
 import wvlet.log.{LogSupport, Logger}
@@ -12,6 +13,7 @@ class RaftServer(current: ServerId,
                  port: Int) extends LogSupport{
 
   private[this] var server: Server = null
+  private[this] var actor: ActorRef = null
 
   override lazy val logger = Logger(s"RaftServer-$current")
   logger.setFormatter(new LogFormatterWithNodeColor(current))
@@ -24,7 +26,9 @@ class RaftServer(current: ServerId,
   )
 
   def start(): Unit = {
-    val service = new RaftServiceImpl()
+    actor = RaftServer.actorSystem.actorOf(Props(classOf[RaftActor], state))
+    val service = new RaftServiceImpl(actor)
+
     server = ServerBuilder.forPort(port).addService(RaftServiceGrpc.bindService(service, RaftServer.ec)).build.start
 
     info("Server started, listening on " + port)
@@ -37,6 +41,8 @@ class RaftServer(current: ServerId,
   }
 
   def stop(): Unit = {
+    RaftServer.actorSystem.stop(actor)
+
     server.shutdownNow()
     server.awaitTermination()
   }
@@ -45,6 +51,8 @@ class RaftServer(current: ServerId,
 
 object RaftServer {
   implicit val ec: ExecutionContext = ExecutionContext.global
+
+  val actorSystem = ActorSystem("RaftActorSystem")
 
   def main(args: Array[String]): Unit = {
     val server = new RaftServer(
